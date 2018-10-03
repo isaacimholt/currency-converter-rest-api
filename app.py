@@ -46,12 +46,8 @@ class ExchangeRate(Resource):
         if dest_rate is None:
             return {'error': f'No currency found for code {dest_rate}'}
 
-        # todo: use separate function for conversion for testing?
-        eur_amount = amount / src_rate
-        dest_amount = eur_amount * dest_rate
-
         return {
-            'amount':   dest_amount,
+            'amount':   amount / src_rate * dest_rate,
             'currency': dest_currency,
         }
 
