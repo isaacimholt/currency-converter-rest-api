@@ -23,7 +23,7 @@ for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube
         curr = item.attrib['currency']
         rate = item.attrib['rate']
         exchange_rates[date][curr] = float(rate)
-    exchange_rates[date]['EUR'] = 1  # simplify conversion logic
+    exchange_rates[date]['EUR'] = 1.0  # simplify conversion logic
 
 
 @app.route('/')
