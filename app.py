@@ -8,11 +8,13 @@ from flask_restful import Resource, Api
 app = Flask(__name__)
 api = Api(app)
 
+# todo: use cache http://flask.pocoo.org/docs/1.0/patterns/caching/
+exchange_rates = {}
+
+# todo: put this into xml_url -> dict function
 xml_url = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml'
 response = requests.get(xml_url)
 root = etree.fromstring(response.content)
-
-exchange_rates = {}
 
 for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
     date = child.attrib['time']
@@ -21,6 +23,7 @@ for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube
         curr = item.attrib['currency']
         rate = item.attrib['rate']
         exchange_rates[date][curr] = float(rate)
+    exchange_rates[date]['EUR'] = 1  # simplify conversion logic
 
 
 @app.route('/')
@@ -39,18 +42,12 @@ class ExchangeRate(Resource):
         if src_rate is None:
             return {'error': f'No currency found for code {src_currency}'}
 
-        eur_amount = amount / src_rate
-
-        if dest_currency == 'EUR':
-            return {
-                'amount':   eur_amount,
-                'currency': dest_currency,
-            }
-
         dest_rate = currencies.get(dest_currency)
         if dest_rate is None:
             return {'error': f'No currency found for code {dest_rate}'}
 
+        # todo: use separate function for conversion for testing?
+        eur_amount = amount / src_rate
         dest_amount = eur_amount * dest_rate
 
         return {
@@ -59,6 +56,7 @@ class ExchangeRate(Resource):
         }
 
 
+# todo: fix route
 api.add_resource(ExchangeRate, '/<string:todo_id>')
 
 if __name__ == '__main__':
