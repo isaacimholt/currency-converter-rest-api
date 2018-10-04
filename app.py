@@ -1,29 +1,34 @@
 import xml.etree.ElementTree as etree
 
 import requests
-from flask import Flask
-from flask import jsonify
+from flask import Flask, jsonify
 from flask_restful import Resource, Api
 
 app = Flask(__name__)
 api = Api(app)
 
+
+def get_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml') -> dict:
+    response = requests.get(xml_url)
+    root = etree.fromstring(response.content)
+
+    for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
+        date = child.attrib['time']
+        exchange_rates[date] = {}
+
+        for item in child:
+            curr = item.attrib['currency']
+            rate = item.attrib['rate']
+            exchange_rates[date][curr] = float(rate)
+
+        # simplify conversion logic
+        exchange_rates[date]['EUR'] = 1.0
+
+    return root
+
+
 # todo: use cache http://flask.pocoo.org/docs/1.0/patterns/caching/
-exchange_rates = {}
-
-# todo: put this into xml_url -> dict function
-xml_url = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml'
-response = requests.get(xml_url)
-root = etree.fromstring(response.content)
-
-for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
-    date = child.attrib['time']
-    exchange_rates[date] = {}
-    for item in child:
-        curr = item.attrib['currency']
-        rate = item.attrib['rate']
-        exchange_rates[date][curr] = float(rate)
-    exchange_rates[date]['EUR'] = 1.0  # simplify conversion logic
+exchange_rates = get_exchange_rates()
 
 
 @app.route('/')
