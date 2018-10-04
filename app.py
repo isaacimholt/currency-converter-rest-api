@@ -38,7 +38,9 @@ def all_exchange_rates():
 
 
 class ExchangeRate(Resource):
-    def get(self, amount: float, src_currency: str, dest_currency: str, reference_date: str):
+    def get(self):
+
+        # reference_date: str, amount: float, src_currency: str, dest_currency: str,
 
         currencies = exchange_rates.get(reference_date)
         if currencies is None:
@@ -59,7 +61,7 @@ class ExchangeRate(Resource):
 
 
 # todo: fix route
-api.add_resource(ExchangeRate, '/<string:todo_id>')
+api.add_resource(ExchangeRate, '/convert')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
