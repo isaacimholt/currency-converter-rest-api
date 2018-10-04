@@ -72,11 +72,11 @@ class ExchangeRate(Resource):
 
         src_rate = currencies.get(src_currency)
         if src_rate is None:
-            return {'message': {'src_currency': f'No currency found for code {src_currency}'}}, 404
+            return {'message': {'src_currency': f'No currency found for code {src_currency.upper()}'}}, 404
 
         dest_rate = currencies.get(dest_currency)
         if dest_rate is None:
-            return {'message': {'dest_currency': f'No currency found for code {dest_rate}'}}, 404
+            return {'message': {'dest_currency': f'No currency found for code {dest_currency.upper()}'}}, 404
 
         return {
             'amount':   amount / src_rate * dest_rate,
