@@ -9,22 +9,23 @@ api = Api(app)
 
 
 def get_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml') -> dict:
+    rates = {}
     response = requests.get(xml_url)
     root = etree.fromstring(response.content)
 
     for child in root.find('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
         date = child.attrib['time']
-        exchange_rates[date] = {}
+        rates[date] = {}
 
         for item in child:
             curr = item.attrib['currency']
             rate = item.attrib['rate']
-            exchange_rates[date][curr] = float(rate)
+            rates[date][curr] = float(rate)
 
         # simplify conversion logic
-        exchange_rates[date]['EUR'] = 1.0
+        rates[date]['EUR'] = 1.0
 
-    return root
+    return rates
 
 
 # todo: use cache http://flask.pocoo.org/docs/1.0/patterns/caching/
