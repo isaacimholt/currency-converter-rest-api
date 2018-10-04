@@ -3,12 +3,14 @@ import xml.etree.ElementTree as etree
 import requests
 from flask import Flask, jsonify
 from flask_restful import Resource, Api, reqparse, inputs
+from werkzeug.contrib.cache import SimpleCache
 
 app = Flask(__name__)
 api = Api(app)
+cache = SimpleCache()
 
 
-def get_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml') -> dict:
+def download_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml') -> dict:
     rates = {}
     response = requests.get(xml_url)
     root = etree.fromstring(response.content)
@@ -28,34 +30,41 @@ def get_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref
     return rates
 
 
-# todo: use cache http://flask.pocoo.org/docs/1.0/patterns/caching/
-exchange_rates = get_exchange_rates()
-
-parser = reqparse.RequestParser(bundle_errors=True)
-parser.add_argument('amount', type=float, required=True, case_sensitive=False,
-                    help='The amount to convert (e.g. 12.35). Error: {error_msg}')
-parser.add_argument('src_currency', type=str, required=True, case_sensitive=False,
-                    help='ISO currency code for the source currency to convert (e.g. EUR, USD, GBP). Error: {error_msg}')
-parser.add_argument('dest_currency', type=str, required=True, case_sensitive=False,
-                    help='ISO currency code for the destination currency to convert (e.g. EUR, USD, GBP). Error: {error_msg}')
-parser.add_argument('reference_date', type=inputs.date, required=True, case_sensitive=False,
-                    help='Reference date for the exchange rate, in YYYY-MM-DD format. Error: {error_msg}')
+def get_exchange_rates():
+    rates = cache.get('rates')
+    if rates is None:
+        rates = download_exchange_rates()
+        cache.set('rates', rates, timeout=5 * 60)
+    return rates
 
 
 @app.route('/')
 def all_exchange_rates():
-    return jsonify(exchange_rates)
+    return jsonify(get_exchange_rates())
 
 
 class ExchangeRate(Resource):
+    parser = reqparse.RequestParser(bundle_errors=True)
+
+    parser.add_argument('amount', type=float, required=True, case_sensitive=False,
+                        help='The amount to convert (e.g. 12.35). Error: {error_msg}')
+    parser.add_argument('src_currency', type=str, required=True, case_sensitive=False,
+                        help='ISO currency code for the source currency to convert (e.g. EUR, USD, GBP). Error: {error_msg}')
+    parser.add_argument('dest_currency', type=str, required=True, case_sensitive=False,
+                        help='ISO currency code for the destination currency to convert (e.g. EUR, USD, GBP). Error: {error_msg}')
+    parser.add_argument('reference_date', type=inputs.date, required=True, case_sensitive=False,
+                        help='Reference date for the exchange rate, in YYYY-MM-DD format. Error: {error_msg}')
+
     def get(self):
 
-        args = parser.parse_args()
-        reference_date = args['reference_date']
-        reference_date = reference_date.strftime('%Y-%m-%d')
+        args = ExchangeRate.parser.parse_args()
+
+        reference_date = args['reference_date'].strftime('%Y-%m-%d')
         src_currency = args['src_currency']
         dest_currency = args['dest_currency']
         amount = args['amount']
+
+        exchange_rates = get_exchange_rates()
 
         currencies = exchange_rates.get(reference_date)
         if currencies is None:
@@ -71,11 +80,10 @@ class ExchangeRate(Resource):
 
         return {
             'amount':   amount / src_rate * dest_rate,
-            'currency': dest_currency,
+            'currency': dest_currency.upper(),
         }
 
 
-# todo: fix route
 api.add_resource(ExchangeRate, '/convert')
 
 if __name__ == '__main__':
