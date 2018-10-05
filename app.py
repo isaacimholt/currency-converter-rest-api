@@ -33,8 +33,7 @@ def download_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/euro
 
 def get_exchange_rates():
     if redis.exists('rates'):
-        rates = redis.get('rates')
-        return json.loads(rates)
+        return json.loads(redis.get('rates'))
     rates = download_exchange_rates()
     redis.set('rates', json.dumps(rates))
     return rates
