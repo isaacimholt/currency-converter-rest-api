@@ -1,13 +1,14 @@
+import json
 import xml.etree.ElementTree as etree
 
 import requests
 from flask import Flask, jsonify
 from flask_restful import Resource, Api, reqparse, inputs
-from werkzeug.contrib.cache import SimpleCache
+from redis import Redis
 
 app = Flask(__name__)
 api = Api(app)
-cache = SimpleCache()
+redis = Redis(host="redis")
 
 
 def download_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml') -> dict:
@@ -31,10 +32,10 @@ def download_exchange_rates(xml_url: str = 'https://www.ecb.europa.eu/stats/euro
 
 
 def get_exchange_rates():
-    rates = cache.get('rates')
-    if rates is None:
-        rates = download_exchange_rates()
-        cache.set('rates', rates, timeout=5 * 60)
+    if redis.exists('rates'):
+        return json.loads(redis.get('rates'))
+    rates = download_exchange_rates()
+    redis.set('rates', json.dumps(rates))
     return rates
 
 
@@ -72,11 +73,11 @@ class ExchangeRate(Resource):
 
         src_rate = currencies.get(src_currency)
         if src_rate is None:
-            return {'message': {'src_currency': f'No currency found for code {src_currency}'}}, 404
+            return {'message': {'src_currency': f'No currency found for code {src_currency.upper()}'}}, 404
 
         dest_rate = currencies.get(dest_currency)
         if dest_rate is None:
-            return {'message': {'dest_currency': f'No currency found for code {dest_rate}'}}, 404
+            return {'message': {'dest_currency': f'No currency found for code {dest_currency.upper()}'}}, 404
 
         return {
             'amount':   amount / src_rate * dest_rate,
