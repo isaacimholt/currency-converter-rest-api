@@ -13,4 +13,4 @@ RUN pip install -r requirements.test.txt
 
 COPY . /app
 
-CMD pytest
+CMD pytest --verbose
